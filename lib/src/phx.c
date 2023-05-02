@@ -157,3 +157,8 @@ void phx_restart_multi(void *data_arr, void *start_arr, void *end_arr,
 void phx_get_preserved(void **data, void **start, void **end) {
     syscall(SYS_PHX_GET_PRESERVED, data, start, end);
 }
+
+void phx_get_preserved_multi(void **data_arr, void **start_arr, void **end_arr,
+                             const unsigned int len) {
+    syscall(SYS_PHX_GET_PRESERVED_MULTI, data_arr, start_arr, end_arr, len);
+}
