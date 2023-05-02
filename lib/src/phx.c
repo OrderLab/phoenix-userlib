@@ -10,8 +10,6 @@
 
 #define SYS_PHX_RESTART 449
 #define SYS_PHX_GET_PRESERVED 450
-#define SYS_PHX_RESTART_MULTI 451
-#define SYS_PHX_GET_PRESERVED_MULTI 452
 
 static bool __phx_recovery_mode;
 
@@ -81,7 +79,7 @@ void *phx_init(int argc, const char *argv[], const char *envp[], sighandler_t ha
     save_args(argc, argv, envp);
 
     void *data, *preserved_start, *preserved_end;
-    phx_get_preserved(&data, &preserved_start, &preserved_end);
+    phx_get_preserved_multi(&data, &preserved_start, &preserved_end,1);
     fprintf(stderr, "phx_get_preserved got data=%p, start=%p, end=%p.\n",
             data, preserved_start, preserved_end);
     preserved_start = (void*)((unsigned long)preserved_start & ~0xfffUL);
@@ -106,6 +104,16 @@ struct user_phx_args {
     void *end;
 };
 
+struct user_phx_args_multi {
+    const char *filename;
+    const char *const *argv;
+    const char *const *envp;
+    void *data_arr;
+    void *start_arr;
+    void *end_arr;
+    unsigned int len; // len should be at least 1
+};
+
 void phx_restart(void *data, void *start, void *end) {
     fprintf(stderr, "Phoenix preserving...\n");
     start = (void*)((unsigned long)start & ~0xfff);
@@ -127,31 +135,25 @@ void phx_restart(void *data, void *start, void *end) {
 void phx_restart_multi(void *data_arr, void *start_arr, void *end_arr,
                        const unsigned int len) {
     fprintf(stderr, "Phoenix preserving multi range...\n");
-    struct user_phx_args *args = malloc(sizeof(struct user_phx_args) * len);
-    assert(args);
-    for (unsigned int i = 0; i < len; ++i) {
-        args[i].filename = "/proc/self/exe";
-        args[i].argv = __phx_saved_args.argv;
-        args[i].envp = __phx_saved_args.envp;
-        args[i].data = ((void **)data_arr)[i];
-
-        // update start_arr and end_arr
-        unsigned long start = ((unsigned long *)start_arr)[i] & ~0xfff;
+    for (unsigned int i = 0; i < len; i++) {
+        unsigned long start = (((unsigned long *)start_arr)[i]) & ~0xfff;
         unsigned long end = (((unsigned long *)end_arr)[i] + 4096 - 1) & ~0xfff;
-
-        fprintf(stderr, "Phoenix preserving range %d: start=%p, end=%p.\n",
-                i, (void*)start, (void*)end);
-
+        fprintf(stderr, "Phoenix preserving range %d: start=%p, end=%p.\n", i,
+                (void *)start, (void *)end);
+        
         ((unsigned long *)start_arr)[i] = start;
         ((unsigned long *)end_arr)[i] = end;
-
-        // this is the address of i-th start
-        args[i].start = &(((unsigned long *)start_arr)[i]);
-        args[i].end = &(((unsigned long *)end_arr)[i]);
     }
-    syscall(SYS_PHX_RESTART_MULTI, args, len);
+    struct user_phx_args_multi args = {
+        .filename = "/proc/self/exe",
+        .argv = __phx_saved_args.argv,
+        .envp = __phx_saved_args.envp,
+        .data_arr = data_arr,
+        .start_arr = start_arr,
+        .end_arr = end_arr,
+    };
+    syscall(SYS_PHX_RESTART, args, len);
     fprintf(stderr, "Phoenix preserved multi range.\n");
-    free(args);
 }
 
 void phx_get_preserved(void **data, void **start, void **end) {
@@ -160,5 +162,5 @@ void phx_get_preserved(void **data, void **start, void **end) {
 
 void phx_get_preserved_multi(void **data_arr, void **start_arr, void **end_arr,
                              const unsigned int len) {
-    syscall(SYS_PHX_GET_PRESERVED_MULTI, data_arr, start_arr, end_arr, len);
+    syscall(SYS_PHX_GET_PRESERVED, data_arr, start_arr, end_arr, len);
 }
