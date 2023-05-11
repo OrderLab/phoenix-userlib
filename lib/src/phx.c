@@ -145,14 +145,15 @@ void phx_restart_multi(void *data_arr, void *start_arr, void *end_arr,
         ((unsigned long *)end_arr)[i] = end;
     }
     struct user_phx_args_multi args = {
-        .filename = "/proc/self/exe",
-        .argv = __phx_saved_args.argv,
-        .envp = __phx_saved_args.envp,
-        .data_arr = data_arr,
-        .start_arr = start_arr,
-        .end_arr = end_arr,
+      .filename = "/proc/self/exe",
+      .argv = __phx_saved_args.argv,
+      .envp = __phx_saved_args.envp,
+      .data_arr = data_arr,
+      .start_arr = start_arr,
+      .end_arr = end_arr,
+      .len = len,
     };
-    syscall(SYS_PHX_RESTART, args, len);
+    syscall(SYS_PHX_RESTART, args);
     fprintf(stderr, "Phoenix preserved multi range.\n");
 }
 
