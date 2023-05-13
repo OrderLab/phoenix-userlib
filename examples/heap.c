@@ -88,7 +88,7 @@ int main(int argc, const char **argv, const char **envp) {
     puts("Restarting in 2s... Ctrl-C if you want to stop");
 
     puts("Restarting...");
-    phx_restart(info, range_start, range_end);
+    phx_restart_multi(info, &range_start, &range_end,1);
 
     return 0;
 }
