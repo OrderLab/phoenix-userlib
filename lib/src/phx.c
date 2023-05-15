@@ -147,6 +147,7 @@ void phx_restart_multi(void *data_arr, void *start_arr, void *end_arr,
 void phx_get_preserved_multi(void **data_arr, void **start_arr, void **end_arr,
                              unsigned int *len) {
     // allocate memory for start_arr, end_arr
+    *data_arr = malloc(sizeof(unsigned long) * 10);
     *start_arr = malloc(sizeof(unsigned long) * 10);
     *end_arr = malloc(sizeof(unsigned long) * 10);
     fprintf(stderr,"first address of start_arr is %p\n",*start_arr);
@@ -155,12 +156,14 @@ void phx_get_preserved_multi(void **data_arr, void **start_arr, void **end_arr,
         stderr,
         "phx_get_preserved_multi got data=%p, start=%p, end=%p, with len=%d.\n",
         *data_arr, *start_arr, *end_arr, *len);
-    if (*start_arr != NULL && *end_arr != NULL)
-        fprintf(stderr, "with actual data: start=%lu, end=%lu.\n",
+    if (*start_arr != NULL && *end_arr != NULL && *len > 0)
+        fprintf(stderr, "with actual data: data0=%lx, start=%lu, end=%lu.\n", *(unsigned long *)*data_arr,
                 *(unsigned long *)*start_arr, *(unsigned long *)*end_arr);
     if (*len == 0) {
+        free(*data_arr);
         free(*start_arr);
         free(*end_arr);
+        *data_arr = NULL;
         *start_arr = NULL;
         *end_arr = NULL;
     }
