@@ -30,12 +30,13 @@ int main(int argc, const char **argv, const char **envp) {
 
     assert((!!info_array) == phx_is_recovery_mode());
 
+
+    start_array = malloc(sizeof(u8 *) * DATA_SIZE);
+    end_array = malloc(sizeof(u8 *) * DATA_SIZE);
+
     if (info_array == NULL) {
         // first time running this program, normal initialization path
         puts("Start first time initialization.");
-
-        start_array = malloc(sizeof(u8 *) * DATA_SIZE);
-        end_array = malloc(sizeof(u8 *) * DATA_SIZE);
 
         for (int i = 0; i < DATA_SIZE; i++) {
             // range_start to range_end can be considered as our custom managed
@@ -71,6 +72,9 @@ int main(int argc, const char **argv, const char **envp) {
 
         for (int i = 0; i < DATA_SIZE; i++) {
             info = info_array[i];
+
+            printf("Recovering for data%d, with data pointer: %p\n", i, info);
+
             range_start = info->start;
             range_end = info->end;
             var1 = info->var1;
@@ -88,6 +92,9 @@ int main(int argc, const char **argv, const char **envp) {
 
             *var1 += 1;
             *var2 -= 2;
+
+            start_array[i] = range_start;
+            end_array[i] = range_end;
 
             printf("Finished modifying for data%d in this round.", i);
             printf("\t*var1=%d, *var2=%d.\n", *var1, *var2);
