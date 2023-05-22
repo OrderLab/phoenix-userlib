@@ -98,8 +98,6 @@ void *phx_init(int argc, const char *argv[], const char *envp[], sighandler_t ha
     __phx_recovery_mode = true;
     assert(preserved_start && preserved_end);
 
-    // free(preserved_start);
-    // free(preserved_end);
     return data;
 }
 
@@ -147,11 +145,16 @@ void phx_restart_multi(void *data_arr, void *start_arr, void *end_arr,
 void phx_get_preserved_multi(void **data_arr, void **start_arr, void **end_arr,
                              unsigned int *len) {
     // allocate memory for start_arr, end_arr
-    *data_arr = malloc(sizeof(unsigned long) * 10);
-    *start_arr = malloc(sizeof(unsigned long) * 10);
-    *end_arr = malloc(sizeof(unsigned long) * 10);
+    int buf_size = 10;
+    int ret = 0;
+    
+    *data_arr = malloc(sizeof(unsigned long) * buf_size);
+    *start_arr = malloc(sizeof(unsigned long) * buf_size);
+    *end_arr = malloc(sizeof(unsigned long) * buf_size);
     fprintf(stderr,"first address of start_arr is %p\n",*start_arr);
-    syscall(SYS_PHX_GET_PRESERVED, data_arr, start_arr, end_arr, len);
+    ret = syscall(SYS_PHX_GET_PRESERVED, data_arr, start_arr, end_arr, &buf_size, len);
+    if (ret)
+        fprintf(stderr, "phx_get_preserved_multi did not copy enough data.\n");
     fprintf(
         stderr,
         "phx_get_preserved_multi got data=%p, start=%p, end=%p, with len=%d.\n",

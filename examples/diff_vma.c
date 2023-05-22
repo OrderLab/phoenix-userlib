@@ -43,7 +43,7 @@ int main(int argc, const char **argv, const char **envp) {
             // heap
 
             if (last_range_start == NULL) {
-                range_start = mmap(NULL, RANGE_SIZE, PROT_READ | PROT_WRITE,
+                range_start = mmap((void*)0x12345678, RANGE_SIZE, PROT_READ | PROT_WRITE,
                     MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
             } else {
                 range_start = mmap(last_range_start - 0x5000, RANGE_SIZE, PROT_READ | PROT_WRITE,
@@ -106,21 +106,18 @@ int main(int argc, const char **argv, const char **envp) {
     for (int i = 0; i < DATA_SIZE; i++) {
         info = (struct preserve_info*)(start_array[i] + sizeof(int) * 2);
         info->var1 = (int*)start_array[i];
-        info->var2 = (int*)start_array[i] + sizeof(int);
+        info->var2 = (int*)(start_array[i] + sizeof(int));
         info->start = start_array[i];
         info->end = end_array[i];
         info_array[i] = info;
-        printf("info = %p\n", info_array[i]);
-        printf("info->var1 = %p\n", info_array[i]->var1);
-        printf("info->var2 = %p\n", info_array[i]->var2);
-        printf("info->start = %p\n", info_array[i]->start);
-        printf("info->end = %p\n", info_array[i]->end);
     }
     
 
 
     // now still try to restart
     puts("Restarting in 2s... Ctrl-C if you want to stop");
+
+    sleep(2);
 
     puts("Restarting...");
     phx_restart_multi(info_array, start_array, end_array,DATA_SIZE);
