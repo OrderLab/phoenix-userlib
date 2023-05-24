@@ -11,6 +11,8 @@
 #define SYS_PHX_RESTART 449
 #define SYS_PHX_GET_PRESERVED 450
 
+#define PHX_PRESERVE_LIMIT 64
+
 static bool __phx_recovery_mode;
 
 static struct phx_saved_args {
@@ -145,14 +147,13 @@ void phx_restart_multi(void *data_arr, void *start_arr, void *end_arr,
 void phx_get_preserved_multi(void **data_arr, void **start_arr, void **end_arr,
                              unsigned int *len) {
     // allocate memory for start_arr, end_arr
-    int buf_size = 10;
     int ret = 0;
     
-    *data_arr = malloc(sizeof(unsigned long) * buf_size);
-    *start_arr = malloc(sizeof(unsigned long) * buf_size);
-    *end_arr = malloc(sizeof(unsigned long) * buf_size);
+    *data_arr = malloc(sizeof(unsigned long) * PHX_PRESERVE_LIMIT);
+    *start_arr = malloc(sizeof(unsigned long) * PHX_PRESERVE_LIMIT);
+    *end_arr = malloc(sizeof(unsigned long) * PHX_PRESERVE_LIMIT);
     fprintf(stderr,"first address of start_arr is %p\n",*start_arr);
-    ret = syscall(SYS_PHX_GET_PRESERVED, data_arr, start_arr, end_arr, &buf_size, len);
+    ret = syscall(SYS_PHX_GET_PRESERVED, data_arr, start_arr, end_arr, len);
     if (ret)
         fprintf(stderr, "phx_get_preserved_multi did not copy enough data.\n");
     fprintf(
