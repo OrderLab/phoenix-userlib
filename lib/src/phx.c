@@ -115,12 +115,50 @@ struct user_phx_args_multi {
     unsigned int len; // len should be at least 1
 };
 
+extern void *phx_get_malloc_ranges();
+// extern void *phx_get_malloc_meta();
+
+struct allocator_info {
+    void *start;
+    void *end;
+};
+
+/* struct phx_malloc_meta {
+    malloc_state *main_arena;
+    malloc_par *mp_;
+    struct malloc_state *next
+}; */
 
 void phx_restart_multi(void *data_arr, void *start_arr, void *end_arr,
                        const unsigned int len) {
     fprintf(stderr, "Phoenix preserving multi range...\n");
 
-    for (unsigned int i = 0; i < len; i++) {
+    // Append glibc malloc ranges to the user data ranges
+    unsigned int raw_len = len;
+    allocator_info **allocator_list = phx_get_malloc_ranges();
+    allocator_info *node = (allocator_list == NULL) ? NULL : allocator_list[0];
+    unsigned int count = 0;
+    while (node != NULL){
+        count++;
+        len++;
+        node = (allocator_info *)((uintptr_t)node + sizeof(unsigned long));
+        if (*node = NULL) {
+            node = NULL;
+        }
+    }
+    start_arr = realloc(start_arr, len);
+    for (unsigned int i = 0; i < count; i++) {
+        ((unsigned long *)start_arr)[raw_len + count] = allocator_list[i]->start;
+        ((unsigned long *)end_arr)[raw_len + count] = allocator_list[i]->end;
+
+        free(allocator_list[i]);
+    }
+
+    if (len > PHX_PRESERVE_LIMIT){
+        fprintf(stderr, "exceed limit.\n"); 
+    }
+
+    for (unsigned int i = 0; i < raw_len; i++) {
         unsigned long start = (((unsigned long *)start_arr)[i]) & ~0xfff;
         unsigned long end = (((unsigned long *)end_arr)[i] + 4096 - 1) & ~0xfff;
         fprintf(stderr, "Phoenix preserving range %d: start=%p, end=%p.\n", i,
@@ -129,6 +167,7 @@ void phx_restart_multi(void *data_arr, void *start_arr, void *end_arr,
         ((unsigned long *)start_arr)[i] = start;
         ((unsigned long *)end_arr)[i] = end;
     }
+
     struct user_phx_args_multi args = {
         .filename = "/proc/self/exe",
         .argv = __phx_saved_args.argv,
@@ -138,6 +177,10 @@ void phx_restart_multi(void *data_arr, void *start_arr, void *end_arr,
         .end_arr = end_arr,
         .len = len,
     };
+
+    // Phx preserve meta
+    phx_malloc_preserve_meta(); 
+
     fprintf(stderr, "before system call");
     syscall(SYS_PHX_RESTART, &args);
     fprintf(stderr, "Phoenix preserved multi range.\n");
@@ -172,3 +215,4 @@ void phx_get_preserved_multi(void **data_arr, void **start_arr, void **end_arr,
         *end_arr = NULL;
     }
 }
+
