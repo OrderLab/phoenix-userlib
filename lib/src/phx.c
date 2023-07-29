@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
+#include <stdint.h>
 #include <errno.h>
 #define _GNU_SOURCE
 #include <unistd.h>
@@ -117,6 +118,7 @@ struct user_phx_args_multi {
 
 extern void *phx_get_malloc_ranges();
 // extern void *phx_get_malloc_meta();
+extern void phx_malloc_preserve_meta();
 
 struct allocator_info {
     void *start;
@@ -130,26 +132,23 @@ struct allocator_info {
 }; */
 
 void phx_restart_multi(void *data_arr, void *start_arr, void *end_arr,
-                       const unsigned int len) {
+                       unsigned int len) {
     fprintf(stderr, "Phoenix preserving multi range...\n");
 
     // Append glibc malloc ranges to the user data ranges
     unsigned int raw_len = len;
-    allocator_info **allocator_list = phx_get_malloc_ranges();
-    allocator_info *node = (allocator_list == NULL) ? NULL : allocator_list[0];
+    struct allocator_info **allocator_list = phx_get_malloc_ranges();
+    struct allocator_info *node = (allocator_list == NULL) ? NULL : allocator_list[0];
     unsigned int count = 0;
     while (node != NULL){
-        count++;
-        len++;
-        node = (allocator_info *)((uintptr_t)node + sizeof(unsigned long));
-        if (*node = NULL) {
-            node = NULL;
-        }
+        count += 1;
+        len += 1;
+        node = (struct allocator_info *)((uintptr_t)node + sizeof(unsigned long));
     }
     start_arr = realloc(start_arr, len);
     for (unsigned int i = 0; i < count; i++) {
-        ((unsigned long *)start_arr)[raw_len + count] = allocator_list[i]->start;
-        ((unsigned long *)end_arr)[raw_len + count] = allocator_list[i]->end;
+        ((unsigned long *)start_arr)[raw_len + count] = (unsigned long)allocator_list[i]->start;
+        ((unsigned long *)end_arr)[raw_len + count] = (unsigned long)allocator_list[i]->end;
 
         free(allocator_list[i]);
     }
