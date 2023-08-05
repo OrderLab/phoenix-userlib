@@ -137,21 +137,28 @@ void phx_restart_multi(void *data_arr, void *start_arr, void *end_arr,
 
     // Append glibc malloc ranges to the user data ranges
     unsigned int raw_len = len;
+    fprintf(stderr, "2\n");
     struct allocator_info **allocator_list = phx_get_malloc_ranges();
-    struct allocator_info *node = (allocator_list == NULL) ? NULL : allocator_list[0];
+    fprintf(stderr, "list addr in phx.c = %p\n", allocator_list);
+    struct allocator_info **node = (allocator_list == NULL) ? NULL : &allocator_list[0];
+    fprintf(stderr, "3\n");
     unsigned int count = 0;
-    while (node != NULL){
+    fprintf(stderr, "start addr = %p, node ptr = %p\n", node, *node);
+    while (node != NULL && *node != NULL){
         count += 1;
         len += 1;
-        node = (struct allocator_info *)((uintptr_t)node + sizeof(unsigned long));
+        node = node + sizeof(unsigned long);
     }
+    fprintf(stderr, "raw len = %u, len = %u\n", raw_len, len);
     start_arr = realloc(start_arr, len);
+    fprintf(stderr, "realloc start_arr = %p\n", start_arr);
     for (unsigned int i = 0; i < count; i++) {
-        ((unsigned long *)start_arr)[raw_len + count] = (unsigned long)allocator_list[i]->start;
-        ((unsigned long *)end_arr)[raw_len + count] = (unsigned long)allocator_list[i]->end;
+        ((unsigned long *)start_arr)[raw_len + i] = (unsigned long)allocator_list[i]->start;
+        ((unsigned long *)end_arr)[raw_len + i] = (unsigned long)allocator_list[i]->end;
 
         free(allocator_list[i]);
     }
+    fprintf(stderr, "5\n");
 
     if (len > PHX_PRESERVE_LIMIT){
         fprintf(stderr, "exceed limit.\n"); 
