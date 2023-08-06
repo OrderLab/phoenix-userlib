@@ -187,13 +187,17 @@ void phx_restart_multi(void *data_arr, void *start_arr, void *end_arr,
         .len = len,
     };
 
+    fprintf(stderr, "before malloc preserve meta\n");
     // Phx preserve meta
     phx_malloc_preserve_meta(); 
 
     fprintf(stderr, "before system call\n");
     int ret = syscall(SYS_PHX_RESTART, &args);
-    if (ret)
+    if (ret){
         fprintf(stderr, "phx_get_preserved_multi did not copy enough data.\n");
+    	perror("Error");
+	fprintf(stderr, "errno: %d\n", errno);
+    }
     fprintf(stderr, "Phoenix preserved multi range.\n");
 }
 
