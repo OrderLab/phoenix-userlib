@@ -137,11 +137,11 @@ void phx_restart_multi(void *data_arr, void *start_arr, void *end_arr,
 
     // Append glibc malloc ranges to the user data ranges
     unsigned int raw_len = len;
-    fprintf(stderr, "2\n");
+
     struct allocator_info **allocator_list = phx_get_malloc_ranges();
     fprintf(stderr, "list addr in phx.c = %p\n", allocator_list);
     struct allocator_info **node = (allocator_list == NULL) ? NULL : &allocator_list[0];
-    fprintf(stderr, "3\n");
+
     unsigned int count = 0;
     fprintf(stderr, "start addr = %p, node ptr = %p\n", node, *node);
     while (node != NULL && *node != NULL){
@@ -150,15 +150,18 @@ void phx_restart_multi(void *data_arr, void *start_arr, void *end_arr,
         node = node + sizeof(unsigned long);
     }
     fprintf(stderr, "raw len = %u, len = %u\n", raw_len, len);
-    start_arr = realloc(start_arr, len);
+    start_arr = realloc(start_arr, len * sizeof(unsigned long));
     fprintf(stderr, "realloc start_arr = %p\n", start_arr);
     for (unsigned int i = 0; i < count; i++) {
-        ((unsigned long *)start_arr)[raw_len + i] = (unsigned long)allocator_list[i]->start;
-        ((unsigned long *)end_arr)[raw_len + i] = (unsigned long)allocator_list[i]->end;
-
-        free(allocator_list[i]);
+	fprintf(stderr, "phoenix start preserving malloc range\n");
+	unsigned long start = ((unsigned long)allocator_list[i]->start) & ~0xfff;
+        unsigned long end = ((unsigned long)allocator_list[i]->end + 4096 - 1) & ~0xfff;
+	((unsigned long *)start_arr)[raw_len + i] = start;
+        ((unsigned long *)end_arr)[raw_len + i] = end;
+	fprintf(stderr, "Phoenix preserving malloc range %d: start=%p, end=%p.\n", i,
+                (void *)start, (void *)end);
+	// free(allocator_list[i]);
     }
-    fprintf(stderr, "5\n");
 
     if (len > PHX_PRESERVE_LIMIT){
         fprintf(stderr, "exceed limit.\n"); 
@@ -187,8 +190,10 @@ void phx_restart_multi(void *data_arr, void *start_arr, void *end_arr,
     // Phx preserve meta
     phx_malloc_preserve_meta(); 
 
-    fprintf(stderr, "before system call");
-    syscall(SYS_PHX_RESTART, &args);
+    fprintf(stderr, "before system call\n");
+    int ret = syscall(SYS_PHX_RESTART, &args);
+    if (ret)
+        fprintf(stderr, "phx_get_preserved_multi did not copy enough data.\n");
     fprintf(stderr, "Phoenix preserved multi range.\n");
 }
 
