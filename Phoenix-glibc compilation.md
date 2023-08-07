@@ -1,6 +1,6 @@
 # Phoenix-glibc compilation
 
-**1. Update the version of Debian **
+**1. Update the version of Debian**
 
 Before making the image, vim `/scripts/mkimg.sh` in orbit directory and replace **buster** with **bookworm**. 
 
