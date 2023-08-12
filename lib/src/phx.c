@@ -151,11 +151,14 @@ void phx_restart_multi(void *data_arr, void *start_arr, void *end_arr,
     }
     fprintf(stderr, "raw len = %u, len = %u\n", raw_len, len);
     start_arr = realloc(start_arr, len * sizeof(unsigned long));
+    end_arr = realloc(end_arr, len * sizeof(unsigned long));
     fprintf(stderr, "realloc start_arr = %p\n", start_arr);
+    fprintf(stderr, "count = %u\n", count);
     for (unsigned int i = 0; i < count; i++) {
 	fprintf(stderr, "phoenix start preserving malloc range\n");
 	unsigned long start = ((unsigned long)allocator_list[i]->start) & ~0xfff;
         unsigned long end = ((unsigned long)allocator_list[i]->end + 4096 - 1) & ~0xfff;
+	fprintf(stderr, "half\n");
 	((unsigned long *)start_arr)[raw_len + i] = start;
         ((unsigned long *)end_arr)[raw_len + i] = end;
 	fprintf(stderr, "Phoenix preserving malloc range %d: start=%p, end=%p.\n", i,
