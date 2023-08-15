@@ -147,7 +147,8 @@ void phx_restart_multi(void *data_arr, void *start_arr, void *end_arr,
     while (node != NULL && *node != NULL){
         count += 1;
         len += 1;
-        node = node + sizeof(unsigned long);
+        node = &allocator_list[count];
+        fprintf(stderr, "new node addr = %p", node);
     }
     fprintf(stderr, "raw len = %u, len = %u\n", raw_len, len);
     start_arr = realloc(start_arr, len * sizeof(unsigned long));
@@ -161,8 +162,8 @@ void phx_restart_multi(void *data_arr, void *start_arr, void *end_arr,
 	fprintf(stderr, "half\n");
 	((unsigned long *)start_arr)[raw_len + i] = start;
         ((unsigned long *)end_arr)[raw_len + i] = end;
-	fprintf(stderr, "Phoenix preserving malloc range %d: start=%p, end=%p.\n", i,
-                (void *)start, (void *)end);
+	fprintf(stderr, "Phoenix preserving malloc range %d: start=%p, end=%p, size is %u\n", i,
+                (void *)start, (void *)end, (size_t)((uintptr_t)start-(uintptr_t)end));
 	// free(allocator_list[i]);
     }
 
