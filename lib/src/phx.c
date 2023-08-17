@@ -82,7 +82,7 @@ void *phx_init(int argc, const char *argv[], const char *envp[], sighandler_t ha
     save_args(argc, argv, envp);
 
     unsigned int len = 0;
-    void *data, *preserved_start = NULL, *preserved_end=NULL;
+    void *data = NULL, *preserved_start = NULL, *preserved_end=NULL;
     phx_get_preserved_multi(&data, &preserved_start, &preserved_end,&len);
     fprintf(stderr,
             "phx_get_preserved got data=%p, start=%p, end=%p, with len=%d.\n",
@@ -131,7 +131,7 @@ struct allocator_info {
     struct malloc_state *next
 }; */
 
-void phx_restart_multi(void *data_arr, void *start_arr, void *end_arr,
+void phx_restart_multi(void *data, void *start_arr, void *end_arr,
                        unsigned int len) {
     fprintf(stderr, "Phoenix preserving multi range...\n");
 
@@ -185,7 +185,7 @@ void phx_restart_multi(void *data_arr, void *start_arr, void *end_arr,
         .filename = "/proc/self/exe",
         .argv = __phx_saved_args.argv,
         .envp = __phx_saved_args.envp,
-        .data_arr = data_arr,
+        .data_arr = data,
         .start_arr = start_arr,
         .end_arr = end_arr,
         .len = len,
@@ -206,30 +206,26 @@ void phx_restart_multi(void *data_arr, void *start_arr, void *end_arr,
 }
 
 
-void phx_get_preserved_multi(void **data_arr, void **start_arr, void **end_arr,
+void phx_get_preserved_multi(void **data, void **start_arr, void **end_arr,
                              unsigned int *len) {
     // allocate memory for start_arr, end_arr
     int ret = 0;
     
-    *data_arr = malloc(sizeof(unsigned long) * PHX_PRESERVE_LIMIT);
     *start_arr = malloc(sizeof(unsigned long) * PHX_PRESERVE_LIMIT);
     *end_arr = malloc(sizeof(unsigned long) * PHX_PRESERVE_LIMIT);
     fprintf(stderr,"first address of start_arr is %p\n",*start_arr);
-    ret = syscall(SYS_PHX_GET_PRESERVED, data_arr, start_arr, end_arr, len);
+    ret = syscall(SYS_PHX_GET_PRESERVED, data, start_arr, end_arr, len);
     if (ret)
         fprintf(stderr, "phx_get_preserved_multi did not copy enough data.\n");
     fprintf(
         stderr,
         "phx_get_preserved_multi got data=%p, start=%p, end=%p, with len=%d.\n",
-        *data_arr, *start_arr, *end_arr, *len);
+        *data, *start_arr, *end_arr, *len);
     if (*start_arr != NULL && *end_arr != NULL && *len > 0)
-        fprintf(stderr, "with actual data: data0=%lx, start=%lu, end=%lu.\n", *(unsigned long *)*data_arr,
-                *(unsigned long *)*start_arr, *(unsigned long *)*end_arr);
+        fprintf(stderr, "with actual data: data0=%lx, start=%lu, end=%lu.\n", *data, *(unsigned long *)*start_arr, *(unsigned long *)*end_arr);
     if (*len == 0) {
-        free(*data_arr);
         free(*start_arr);
         free(*end_arr);
-        *data_arr = NULL;
         *start_arr = NULL;
         *end_arr = NULL;
     }
