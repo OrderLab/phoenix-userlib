@@ -57,10 +57,10 @@ RM = /usr/bin/cmake -E rm -f
 EQUALS = =
 
 # The top-level source directory on which CMake was run.
-CMAKE_SOURCE_DIR = /home/atttt/Documents/phoenix-userlib/lib
+CMAKE_SOURCE_DIR = /root/phx/userlib/lib
 
 # The top-level build directory on which CMake was run.
-CMAKE_BINARY_DIR = /home/atttt/Documents/phoenix-userlib/lib
+CMAKE_BINARY_DIR = /root/phx/userlib/lib
 
 #=============================================================================
 # Targets provided globally by CMake.
@@ -87,9 +87,9 @@ rebuild_cache/fast: rebuild_cache
 
 # The main all target
 all: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start /home/atttt/Documents/phoenix-userlib/lib/CMakeFiles /home/atttt/Documents/phoenix-userlib/lib//CMakeFiles/progress.marks
+	$(CMAKE_COMMAND) -E cmake_progress_start /root/phx/userlib/lib/CMakeFiles /root/phx/userlib/lib//CMakeFiles/progress.marks
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 all
-	$(CMAKE_COMMAND) -E cmake_progress_start /home/atttt/Documents/phoenix-userlib/lib/CMakeFiles 0
+	$(CMAKE_COMMAND) -E cmake_progress_start /root/phx/userlib/lib/CMakeFiles 0
 .PHONY : all
 
 # The main clean target

@@ -82,7 +82,7 @@ void *phx_init(int argc, const char *argv[], const char *envp[], sighandler_t ha
     save_args(argc, argv, envp);
 
     unsigned int len = 0;
-    void *data = NULL, *preserved_start = NULL, *preserved_end=NULL;
+    void *data, *preserved_start = NULL, *preserved_end=NULL;
     phx_get_preserved_multi(&data, &preserved_start, &preserved_end,&len);
     fprintf(stderr,
             "phx_get_preserved got data=%p, start=%p, end=%p, with len=%d.\n",
