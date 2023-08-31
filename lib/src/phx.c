@@ -163,7 +163,7 @@ void phx_restart_multi(void *data, void *start_arr, void *end_arr,
 	((unsigned long *)start_arr)[raw_len + i] = start;
         ((unsigned long *)end_arr)[raw_len + i] = end;
 	fprintf(stderr, "Phoenix preserving malloc range %d: start=%p, end=%p, size is %u\n", i,
-                (void *)start, (void *)end, (size_t)((uintptr_t)start-(uintptr_t)end));
+                (void *)start, (void *)end, (size_t)((uintptr_t)end-(uintptr_t)start));
 	// free(allocator_list[i]);
     }
 
