@@ -1,20 +1,16 @@
-#ifdef __cplusplus
-#include <cstdbool>
-#include <csignal>
-#else
-#include <stdbool.h>
-#define _GNU_SOURCE
-#include <signal.h>
-#endif
+#ifndef _PHX_H_
+#define _PHX_H_
 
 /* ====== recovery mode status API ====== */
-bool phx_is_recovery_mode(void);
+int phx_is_recovery_mode(void);
 void phx_finish_recovery(void);
 
 /* Main public API */
-void *phx_init(int argc, const char *argv[], const char *envp[], sighandler_t handler);
+void *phx_init(int argc, const char *argv[], const char *envp[], void (*handler)(int));
 
 /* Low-level building block API */
 // currently only support one range
 void phx_restart(void *data, void *start, void *end);
 void phx_get_preserved(void **data, void **start, void **end);
+
+#endif /* _PHX_H_ */

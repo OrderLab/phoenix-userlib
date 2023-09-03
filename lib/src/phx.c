@@ -6,12 +6,13 @@
 #include <errno.h>
 #define _GNU_SOURCE
 #include <unistd.h>
+#include <signal.h>
 #include <sys/syscall.h>
 
 #define SYS_PHX_RESTART 449
 #define SYS_PHX_GET_PRESERVED 450
 
-static bool __phx_recovery_mode;
+static int __phx_recovery_mode;
 
 static struct phx_saved_args {
     // FIXME: leak?
@@ -23,12 +24,12 @@ static struct phx_saved_args {
 
 /* ====== Public API for recovery mode status ====== */
 
-bool phx_is_recovery_mode(void) {
+int phx_is_recovery_mode(void) {
     return __phx_recovery_mode;
 }
 
 void phx_finish_recovery(void) {
-    __phx_recovery_mode = false;
+    __phx_recovery_mode = 0;
 }
 
 static const char **save_arg_array(const char *argv[], size_t *save_cnt) {
@@ -70,7 +71,7 @@ static void save_args(int argc, const char *argv[], const char *envp[]) {
     assert(count == (size_t)argc);
 }
 
-void *phx_init(int argc, const char *argv[], const char *envp[], sighandler_t handler) {
+void *phx_init(int argc, const char *argv[], const char *envp[], void (*handler)(int)) {
     fprintf(stderr, "In new process phx_init\n");
 
     if (SIG_ERR == signal(SIGSEGV, handler))
@@ -88,7 +89,7 @@ void *phx_init(int argc, const char *argv[], const char *envp[], sighandler_t ha
     if (data == NULL)
         return NULL;
 
-    __phx_recovery_mode = true;
+    __phx_recovery_mode = 1;
     assert(preserved_start && preserved_end);
     return data;
 }
