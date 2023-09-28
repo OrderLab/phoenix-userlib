@@ -1,4 +1,5 @@
 #include "phx.h"
+#include <time.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -78,8 +79,11 @@ void *phx_init(int argc, const char *argv[], const char *envp[], sighandler_t ha
 
     if (SIG_ERR == signal(SIGSEGV, handler))
         fprintf(stderr, "Warning: segfault handler could not be set: %s\n", strerror(errno));
-
+    clock_t t10 = clock();
+    fprintf(stderr, "t10 = %lf", (double)t10);
     save_args(argc, argv, envp);
+    clock_t t11 = clock();
+    fprintf(stderr, "t11 = %lf", (double)t11);
 
     unsigned int len = 0;
     void *data, *preserved_start = NULL, *preserved_end=NULL;
@@ -139,6 +143,9 @@ void phx_restart_multi(void *data, void *start_arr, void *end_arr,
     unsigned int raw_len = len;
 
     struct allocator_info **allocator_list = phx_get_malloc_ranges();
+    
+    clock_t t3 = clock();
+    fprintf(stderr, "After get malloc ranges, t3 = %lf\n", (double)t3);
     fprintf(stderr, "list addr in phx.c = %p\n", allocator_list);
     struct allocator_info **node = (allocator_list == NULL) ? NULL : &allocator_list[0];
 
@@ -193,7 +200,11 @@ void phx_restart_multi(void *data, void *start_arr, void *end_arr,
 
     fprintf(stderr, "before malloc preserve meta\n");
     // Phx preserve meta
+    clock_t t4 = clock();             
+    fprintf(stderr, "Before malloc preserve meta, t4 = %lf\n", (double)t4);
     phx_malloc_preserve_meta(); 
+    clock_t t5 = clock();             
+    fprintf(stderr, "After malloc preserve meta, t5 = %lf\n", (double)t5);
 
     fprintf(stderr, "before system call\n");
     int ret = syscall(SYS_PHX_RESTART, &args);
@@ -210,11 +221,17 @@ void phx_get_preserved_multi(void **data, void **start_arr, void **end_arr,
                              unsigned int *len) {
     // allocate memory for start_arr, end_arr
     int ret = 0;
+    clock_t t9 = clock();
+    fprintf(stderr, "t9 = %lf", (double)t9);
     
     *start_arr = malloc(sizeof(unsigned long) * PHX_PRESERVE_LIMIT);
     *end_arr = malloc(sizeof(unsigned long) * PHX_PRESERVE_LIMIT);
     fprintf(stderr,"first address of start_arr is %p\n",*start_arr);
+    clock_t t7 = clock();
+    fprintf(stderr, "t7 = %lf", (double)t7);
     ret = syscall(SYS_PHX_GET_PRESERVED, data, start_arr, end_arr, len);
+    clock_t t8 = clock();
+    fprintf(stderr, "t8 = %lf", (double)t8);
     if (ret)
         fprintf(stderr, "phx_get_preserved_multi did not copy enough data.\n");
     fprintf(
