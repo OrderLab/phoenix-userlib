@@ -1,0 +1,1 @@
+export LD_LIBRARY_PATH=/lib:$PWD:$LD_LIBRARY_PATH
