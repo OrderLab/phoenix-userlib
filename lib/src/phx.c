@@ -161,9 +161,9 @@ void phx_restart_multi(void *data, void *start_arr, void *end_arr,
         dprintf("new node addr = %p", node);
     }
     dprintf("raw len = %u, len = %u\n", raw_len, len);
-    start_arr = realloc(start_arr, len * sizeof(unsigned long));
-    end_arr = realloc(end_arr, len * sizeof(unsigned long));
-    dprintf("realloc start_arr = %p\n", start_arr);
+    start_arr = malloc(len * sizeof(unsigned long));
+    end_arr = malloc(len * sizeof(unsigned long));
+    dprintf("malloc start_arr = %p\n", start_arr);
     dprintf("count = %u\n", count);
     for (unsigned int i = 0; i < count; i++) {
 	dprintf("phoenix start preserving malloc range\n");
