@@ -161,8 +161,9 @@ void phx_restart_multi(void *data, void *start_arr, void *end_arr,
         dprintf("new node addr = %p", node);
     }
     dprintf("raw len = %u, len = %u\n", raw_len, len);
-    start_arr = malloc(len * sizeof(unsigned long));
-    end_arr = malloc(len * sizeof(unsigned long));
+    // Malloc new arrays to store the new ranges
+    void *new_startarr = malloc(len * sizeof(unsigned long));
+    void *new_endarr = malloc(len * sizeof(unsigned long));
     dprintf("malloc start_arr = %p\n", start_arr);
     dprintf("count = %u\n", count);
     for (unsigned int i = 0; i < count; i++) {
@@ -170,8 +171,8 @@ void phx_restart_multi(void *data, void *start_arr, void *end_arr,
 	unsigned long start = ((unsigned long)allocator_list[i]->start) & ~0xfff;
         unsigned long end = ((unsigned long)allocator_list[i]->end + 4096 - 1) & ~0xfff;
 	dprintf("half\n");
-	((unsigned long *)start_arr)[raw_len + i] = start;
-        ((unsigned long *)end_arr)[raw_len + i] = end;
+	((unsigned long *)new_startarr)[raw_len + i] = start;
+        ((unsigned long *)new_endarr)[raw_len + i] = end;
 	dprintf("Phoenix preserving malloc range %d: start=%p, end=%p, size is %lu\n", i,
                 (void *)start, (void *)end, (size_t)((uintptr_t)end-(uintptr_t)start));
 	// free(allocator_list[i]);
@@ -187,8 +188,8 @@ void phx_restart_multi(void *data, void *start_arr, void *end_arr,
         dprintf("Phoenix preserving range %d: start=%p, end=%p.\n", i,
                 (void *)start, (void *)end);
         
-        ((unsigned long *)start_arr)[i] = start;
-        ((unsigned long *)end_arr)[i] = end;
+        ((unsigned long *)new_startarr)[i] = start;
+        ((unsigned long *)new_endarr)[i] = end;
     }
 
     struct user_phx_args_multi args = {
@@ -196,8 +197,8 @@ void phx_restart_multi(void *data, void *start_arr, void *end_arr,
         .argv = __phx_saved_args.argv,
         .envp = __phx_saved_args.envp,
         .data_arr = data,
-        .start_arr = start_arr,
-        .end_arr = end_arr,
+        .start_arr = new_startarr,
+        .end_arr = new_endarr,
         .len = len,
     };
 
