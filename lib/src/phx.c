@@ -10,6 +10,7 @@
 #include <unistd.h>
 #include <signal.h>
 #include <sys/syscall.h>
+#include <sys/time.h>
 
 #define SYS_PHX_RESTART 449
 #define SYS_PHX_GET_PRESERVED 450
@@ -19,7 +20,44 @@
 #define dprintf(...) do {} while(0)
 // #define dprintf(fmt, ...) do { fprintf(stderr, fmt, ##__VA_ARGS__); } while(0)
 
+static long long ustime(void) {
+    struct timeval tv;
+    long long ust;
+
+    gettimeofday(&tv, NULL);
+    ust = ((long)tv.tv_sec)*1000000;
+    ust += tv.tv_usec;
+    return ust;
+}
+
 static int __phx_recovery_mode;
+
+static long long init_duration = 0;
+static long long duration = 0;
+static int phx_mode = 0;
+static int cnt = 0;
+static struct ckpt_t {
+	long long t;
+	const char *name;
+} ckpts[32] = { { 0, NULL, }, };
+
+//enum { COUNTER_BASE = cnt };
+
+#define CKPT 1
+
+#define ckpt(s) \
+	if(CKPT && phx_mode) { \
+		if (cnt == 0) { \
+			ckpts[0] = (struct ckpt_t) { \
+				.t = ustime(), \
+				.name = s, \
+			}; \
+		} else { \
+			ckpts[cnt].t = ustime() - ckpts[0].t; \
+			ckpts[cnt].name = s; \
+		} \
+		cnt++; \
+	} 
 
 static struct phx_saved_args {
     // FIXME: leak?
@@ -80,10 +118,13 @@ static void save_args(int argc, const char *argv[], const char *envp[]) {
 
 void *phx_init(int argc, const char *argv[], const char *envp[], void (*handler)(int)) {
     dprintf("In new process phx_init\n");
-
+    clock_t t10 = clock();
+    phx_mode = 1;
+    ckpt("Entering phx_init");
+   
+    //fprintf(stderr, "Entering Phxinit, t10 = %lf\n", (double)t10);
     if (SIG_ERR == signal(SIGSEGV, handler))
         dprintf("Warning: segfault handler could not be set: %s\n", strerror(errno));
-    clock_t t10 = clock();
     dprintf("t10 = %lf", (double)t10);
     save_args(argc, argv, envp);
     clock_t t11 = clock();
@@ -102,11 +143,31 @@ void *phx_init(int argc, const char *argv[], const char *envp[], void (*handler)
     preserved_start = (void*)((unsigned long)preserved_start & ~0xfffUL);
     preserved_end = (void*)(((unsigned long)preserved_end + 4096 - 1) & ~0xfffUL);
 
-    if (data == NULL)
-        return NULL;
+    clock_t t1 = clock();
+    //fprintf(stderr, "PHXINIT Done, t1 = %lf\n", (double)t1);
+    if (data == NULL) {
+        cnt = 0;
+	phx_mode = 0;
+	return NULL;
+    }
 
     __phx_recovery_mode = 1;
     assert(preserved_start && preserved_end);
+
+    ckpt("Phx init done");
+
+    if (CKPT && phx_mode) {
+                int total = cnt;
+
+                ckpts[0].t = 0;
+                size_t i;
+                for (i = 1; i < total; ++i) {
+                        init_duration += (ckpts[i].t - ckpts[i - 1].t);
+                }
+                phx_mode = 0;
+                cnt = 0;
+        }
+    memcpy(data+sizeof(long long), &init_duration, sizeof(long long));
 
     return data;
 }
@@ -142,13 +203,17 @@ void phx_restart_multi(void *data, void *start_arr, void *end_arr,
                        unsigned int len) {
     dprintf("Phoenix preserving multi range...\n");
 
+    phx_mode = 1;
+    ckpt("Restart begins");
     // Append glibc malloc ranges to the user data ranges
     unsigned int raw_len = len;
 
+    clock_t t0 = clock();
+    //fprintf(stderr, "before get malloc ranges, t0 = %lf\n", (double)t0);
     struct allocator_info **allocator_list = phx_get_malloc_ranges();
     
     clock_t t3 = clock();
-    dprintf("After get malloc ranges, t3 = %lf\n", (double)t3);
+    //fprintf(stderr, "After get malloc ranges, t3 = %lf\n", (double)t3);
     dprintf("list addr in phx.c = %p\n", allocator_list);
     struct allocator_info **node = (allocator_list == NULL) ? NULL : &allocator_list[0];
 
@@ -204,11 +269,26 @@ void phx_restart_multi(void *data, void *start_arr, void *end_arr,
 
     dprintf("before malloc preserve meta\n");
     // Phx preserve meta
-    clock_t t4 = clock();             
-    dprintf("Before malloc preserve meta, t4 = %lf\n", (double)t4);
+    clock_t t4 = clock();      
+    ckpt("Before preserve meta");
+    //fprintf(stderr, "Before malloc preserve meta, t4 = %lf\n", (double)t4);
     phx_malloc_preserve_meta(); 
     clock_t t5 = clock();             
-    dprintf("After malloc preserve meta, t5 = %lf\n", (double)t5);
+    //fprintf(stderr, "After malloc preserve meta, t5 = %lf\n", (double)t5);
+    ckpt("Before entering restart syscall");
+
+    if (CKPT && phx_mode) {
+                int total = cnt;
+
+                ckpts[0].t = 0;
+                size_t i;
+                for (i = 1; i < total; ++i) {
+                	duration += (ckpts[i].t - ckpts[i - 1].t);
+		}
+                phx_mode = 0;
+                cnt = 0;
+        }
+    memcpy(data, &duration, sizeof(long long));
 
     dprintf("before system call\n");
     int ret = syscall(SYS_PHX_RESTART, &args);
@@ -226,16 +306,17 @@ void phx_get_preserved_multi(void **data, void **start_arr, void **end_arr,
     // allocate memory for start_arr, end_arr
     int ret = 0;
     clock_t t9 = clock();
-    dprintf("t9 = %lf", (double)t9);
+    //fprintf(stderr, "t9 = %lf", (double)t9);
     
     *start_arr = malloc(sizeof(unsigned long) * PHX_PRESERVE_LIMIT);
     *end_arr = malloc(sizeof(unsigned long) * PHX_PRESERVE_LIMIT);
     dprintf("first address of start_arr is %p\n",*start_arr);
     clock_t t7 = clock();
-    dprintf("t7 = %lf", (double)t7);
+    ckpt("Before syscall phx get preserved");
+    //fprintf(stderr, "t7 = %lf", (double)t7);
     ret = syscall(SYS_PHX_GET_PRESERVED, data, start_arr, end_arr, len);
     clock_t t8 = clock();
-    dprintf("t8 = %lf", (double)t8);
+    //fprintf(stderr, "t8 = %lf\n", (double)t8);
     if (ret)
         dprintf("phx_get_preserved_multi did not copy enough data.\n");
     dprintf("phx_get_preserved_multi got data=%p, start=%p, end=%p, with len=%d.\n",
