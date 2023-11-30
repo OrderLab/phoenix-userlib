@@ -1,0 +1,164 @@
+diff --git a/csu/libc-start.c b/csu/libc-start.c
+index c3bb6d09..53b28937 100644
+--- a/csu/libc-start.c
++++ b/csu/libc-start.c
+@@ -240,6 +240,8 @@ LIBC_START_MAIN (int (*main) (int, char **, char ** MAIN_AUXVEC_DECL),
+ 		 void (*fini) (void),
+ 		 void (*rtld_fini) (void), void *stack_end)
+ {
++  phx_mode = 1;
++  ckpt ("Libc start main");
+ #ifndef SHARED
+   char **ev = &argv[argc + 1];
+ 
+diff --git a/elf/Versions b/elf/Versions
+index 23c6d173..d6687653 100644
+--- a/elf/Versions
++++ b/elf/Versions
+@@ -54,8 +54,9 @@ ld {
+   }
+   GLIBC_2.34 {
+     __rtld_version_placeholder;
++    phx_get_time; 
+     phx_get_ranges;
+-  }
++ }
+   GLIBC_PRIVATE {
+     # Those are in the dynamic linker, but used by libc.so.
+     __libc_enable_secure;
+diff --git a/elf/dl-load.c b/elf/dl-load.c
+index 393712d6..44149714 100644
+--- a/elf/dl-load.c
++++ b/elf/dl-load.c
+@@ -2471,7 +2471,8 @@ close_fd:
+ #define ALIGN32(x) (((x) & ~0x1fU) + 32)
+ 
+ static struct saved_link_map *map_create(unsigned int nmaps) {
+-    struct saved_link_map *map = __mmap(NULL, PAGE_SIZE, PROT_READ|PROT_WRITE,
++    // hack: sometimes one single page will be allocated in the gap of ld mapping itself
++    struct saved_link_map *map = __mmap(NULL, PAGE_SIZE * 4, PROT_READ|PROT_WRITE,
+             MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+     if (map == MAP_FAILED)
+         return NULL;
+@@ -2537,7 +2538,7 @@ struct phx_range *__phx_get_ranges(size_t *len)
+   }
+ 
+   // TODO: check this return
+-  push_range(&array, (unsigned long)map, PAGE_SIZE);
++  push_range(&array, (unsigned long)map, PAGE_SIZE * 4);
+ 
+   syscall(SYS_PHX_PRESERVE_LMAP, map);
+ 
+diff --git a/elf/rtld.c b/elf/rtld.c
+index b8467f37..e0e32984 100644
+--- a/elf/rtld.c
++++ b/elf/rtld.c
+@@ -588,7 +588,11 @@ _dl_start (void *arg)
+ #endif
+ }
+ 
++hp_timing_t __phx_get_time (void) {
++  return start_time;
++}
+ 
++versioned_symbol (libc, __phx_get_time, phx_get_time, GLIBC_2_34);
+ 
+ /* Now life is peachy; we can do all normal operations.
+    On to the real work.  */
+diff --git a/malloc/Versions b/malloc/Versions
+index 2cbb4de2..549d514f 100644
+--- a/malloc/Versions
++++ b/malloc/Versions
+@@ -1,7 +1,7 @@
+ libc {
+   GLIBC_2.0 {
+     # global variables
+-    _obstack;
++    _obstack; _gduration;
+ 
+     # interface of malloc functions
+     __libc_calloc; __libc_free; __libc_mallinfo; __libc_malloc;
+diff --git a/malloc/malloc.c b/malloc/malloc.c
+index fb78cffc..07952ac1 100644
+--- a/malloc/malloc.c
++++ b/malloc/malloc.c
+@@ -2036,7 +2036,7 @@ free_perturb (char *p, size_t n)
+     memset (p, perturb_byte, n);
+ }
+ 
+-
++long long _gduration = 0;
+ 
+ #include <stap-probe.h>
+ 
+@@ -3852,7 +3852,7 @@ __libc_phx_get_malloc_ranges (void)
+   for (int i = 0; i < count-1; i++)
+   {
+     __dprintf("raw: start addr = %p, node ptr = %p\n", &allocator_list[i], allocator_list[i]);
+-    __dprintf("Start from %p, end at %p\n", allocator_list[i]->start, allocator_list[i]->end);
++    fprintf(stderr, "Start from %p, end at %p\n", allocator_list[i]->start, allocator_list[i]->end);
+   }
+   __dprintf("next raw: start addr = %p, node ptr = %p\n", &allocator_list[count-1], allocator_list[count-1]);
+   __dprintf("list addr = %p\n", allocator_list);
+diff --git a/malloc/malloc.h b/malloc/malloc.h
+index e82cdf09..d82106d3 100644
+--- a/malloc/malloc.h
++++ b/malloc/malloc.h
+@@ -80,6 +80,8 @@ extern void *pvalloc (size_t __size) __THROW __attribute_malloc__
+ /* Get the phx malloc ranges */
+ extern void *phx_get_malloc_ranges (void) __THROW;
+ 
++extern long long _gduration;
++
+ extern void phx_malloc_preserve_meta (void) __THROW;
+ 
+ /* SVID2/XPG mallinfo structure */
+diff --git a/sysdeps/nptl/libc_start_call_main.h b/sysdeps/nptl/libc_start_call_main.h
+index a55e3df0..c9b672ac 100644
+--- a/sysdeps/nptl/libc_start_call_main.h
++++ b/sysdeps/nptl/libc_start_call_main.h
+@@ -18,6 +18,8 @@
+ 
+ #include <atomic.h>
+ #include <pthreadP.h>
++#include <malloc/malloc.h>
++#include <ckpt.h>
+ 
+ _Noreturn static void
+ __libc_start_call_main (int (*main) (int, char **, char ** MAIN_AUXVEC_DECL),
+@@ -54,6 +56,15 @@ __libc_start_call_main (int (*main) (int, char **, char ** MAIN_AUXVEC_DECL),
+       /* Store the new cleanup handler info.  */
+       THREAD_SETMEM (self, cleanup_jmp_buf, &unwind_buf);
+ 
++      ckpt ("Done initialization");
++      phx_mode = 0;
++      ckpts[0].t = 0;
++      size_t i;
++      for (i = 1; i < cnt; i++) {
++        _gduration += ckpts[i].t - ckpts[i - 1].t;
++      }
++      cnt = 0;
++
+       /* Run the program.  */
+       result = main (argc, argv, __environ MAIN_AUXVEC_PARAM);
+     }
+diff --git a/sysdeps/unix/sysv/linux/x86_64/64/libc.abilist b/sysdeps/unix/sysv/linux/x86_64/64/libc.abilist
+index 893c43a4..1bc96a6e 100644
+--- a/sysdeps/unix/sysv/linux/x86_64/64/libc.abilist
++++ b/sysdeps/unix/sysv/linux/x86_64/64/libc.abilist
+@@ -536,6 +536,7 @@ GLIBC_2.2.5 _dl_mcount_wrapper_check F
+ GLIBC_2.2.5 _environ D 0x8
+ GLIBC_2.2.5 _exit F
+ GLIBC_2.2.5 _flushlbf F
++GLIBC_2.2.5 _gduration D 0x8
+ GLIBC_2.2.5 _libc_intl_domainname D 0x5
+ GLIBC_2.2.5 _longjmp F
+ GLIBC_2.2.5 _mcleanup F
+@@ -2396,6 +2397,7 @@ GLIBC_2.34 ns_name_unpack F
+ GLIBC_2.34 openpty F
+ GLIBC_2.34 phx_get_ranges F
+ GLIBC_2.34 phx_get_malloc_ranges F
++GLIBC_2.34 phx_get_time F
+ GLIBC_2.34 posix_spawn_file_actions_addclosefrom_np F
+ GLIBC_2.34 pthread_attr_getaffinity_np F
+ GLIBC_2.34 pthread_attr_getguardsize F
